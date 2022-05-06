@@ -10,6 +10,7 @@
         id="firstname"
         type="text"
         v-model="state.firstname"
+        @blur="v$.firstname.$touch()"
       />
       <base-error v-if="v$.firstname.$error">{{
         v$.firstname.$errors[0].$message
@@ -22,6 +23,7 @@
         id="lastname"
         type="text"
         v-model="state.lastname"
+        @blur="v$.lastname.$touch()"
       />
       <base-error v-if="v$.lastname.$error">{{
         v$.lastname.$errors[0].$message
@@ -34,6 +36,7 @@
         id="email"
         type="text"
         v-model="state.email"
+        @blur="v$.email.$touch()"
       />
       <base-error v-if="v$.email.$error">{{
         v$.email.$errors[0].$message
@@ -47,33 +50,33 @@
         type="text"
         v-model="state.phone"
         v-mask="'#(###)###-##-##'"
+        @blur="v$.phone.$touch()"
       />
       <base-error v-if="v$.phone.$error">{{
         v$.phone.$errors[0].$message
       }}</base-error>
     </div>
-    <div class="form-group c3">
+    <div class="form-group c6">
       <label for="password">Password</label>
       <input
-        :class="{ 'error-border': v$.password.password.$error }"
+        :class="{ 'error-border': v$.password.$error }"
         id="password"
-        type="text"
-        v-model="state.password.password"
+        :type="visibility"
+        v-model="state.password"
+        @blur="v$.password.$touch()"
       />
-      <base-error v-if="v$.password.password.$error">{{
-        v$.password.password.$errors[0].$message
-      }}</base-error>
-    </div>
-    <div class="form-group c3">
-      <label for="confirm">Confirm Password</label>
-      <input
-        :class="{ 'error-border': v$.password.confirm.$error }"
-        id="confirm"
-        type="text"
-        v-model="state.password.confirm"
-      />
-      <base-error v-if="v$.password.confirm.$error">{{
-        v$.password.confirm.$errors[0].$message
+      <a
+        class="password-eye"
+        @click="showPassword"
+        v-if="visibility == 'password'"
+      >
+        <img src="../../assets/icons/crossed-out-eye.svg" alt="Eye" />
+      </a>
+      <a class="password-eye" @click="hidePassword" v-if="visibility == 'text'">
+        <img src="../../assets/icons/eye.svg" alt="Crossed out eye" />
+      </a>
+      <base-error v-if="v$.password.$error">{{
+        v$.password.$errors[0].$message
       }}</base-error>
     </div>
     <div class="form-group c6">
@@ -105,8 +108,8 @@ import {
   helpers,
   required,
   email,
-  sameAs,
   and,
+  requiredUnless,
   minLength,
   maxLength,
 } from "@vuelidate/validators";
@@ -123,10 +126,7 @@ export default {
       lastname: "",
       email: "",
       phone: "",
-      password: {
-        password: "",
-        confirm: "",
-      },
+      password: "",
     });
 
     // Запрос к REST Countries API
@@ -139,8 +139,8 @@ export default {
     });
 
     // Паттерны
-    // Паттерн с символами (0-9, а-я, А-Я, a-z, A-Z)
-    const alphaNum = helpers.regex(/^[A-Za-zА-Яа-яЁё0-9]+$/);
+    // Паттерн с символами (а-я, А-Я, a-z, A-Z)
+    const alpha = helpers.regex(/^[A-Za-zА-Яа-яЁё]+$/);
     const passNum = helpers.regex(/[0-9]{2,20}/);
     const passAlphaLat = helpers.regex(/[A-Za-z]/);
     const passCyr = helpers.regex(/^[^А-Яа-яЁё]+$/);
@@ -151,35 +151,35 @@ export default {
       return {
         firstname: {
           required,
-          alphaNum: helpers.withMessage(
-            "Only Cyrillic, Latin and numbers",
-            alphaNum
-          ),
+          alpha: helpers.withMessage("Only Cyrillic and Latin", alpha),
           minLength: minLength(2),
         },
         lastname: {
           required,
-          alphaNum: helpers.withMessage(
-            "Only Cyrillic, Latin and numbers",
-            alphaNum
-          ),
+          alpha: helpers.withMessage("Only Cyrillic and Latin", alpha),
           minLength: minLength(2),
         },
-        email: { required, email },
-        phone: { required, maxLength: maxLength(15) },
+        email: {
+          required: helpers.withMessage(
+            "Fill in the phone or email field",
+            requiredUnless(state.phone)
+          ),
+          email,
+        },
+        phone: {
+          required: helpers.withMessage(
+            "Fill in the phone or email field",
+            requiredUnless(state.email)
+          ),
+          maxLength: maxLength(15),
+        },
         password: {
-          password: {
-            required,
-            minLength: minLength(8),
-            shouldBeChecked: helpers.withMessage(
-              "Passwords must contain at least 2 digits, 1 special character and only Latin",
-              and(passNum, passAlphaLat, passCyr, passSym)
-            ),
-          },
-          confirm: {
-            required,
-            sameAs: sameAs(state.password.password),
-          },
+          required,
+          minLength: minLength(8),
+          shouldBeChecked: helpers.withMessage(
+            "Passwords must contain at least 2 digits, 1 special character and only Latin",
+            and(passNum, passAlphaLat, passCyr, passSym)
+          ),
         },
       };
     });
@@ -200,12 +200,25 @@ export default {
       }
     }
 
+    let visibility = ref("password");
+    // Показать пароль
+    function showPassword() {
+      visibility.value = "text";
+    }
+    // Скрыть пароль
+    function hidePassword() {
+      visibility.value = "password";
+    }
+
     return {
       formValid,
       submitForm,
       state,
       v$,
       countries,
+      visibility,
+      showPassword,
+      hidePassword,
     };
   },
 };
@@ -287,5 +300,15 @@ label {
 .error-border {
   transition: 0.3s ease;
   border: 1px solid red;
+}
+
+.password-eye {
+  position: absolute;
+  right: 10px;
+  top: 35px;
+}
+.password-eye img {
+  width: 25px;
+  cursor: pointer;
 }
 </style>

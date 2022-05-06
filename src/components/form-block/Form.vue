@@ -22,6 +22,6 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-evenly;
-  height: 100vh;
+  /* height: 100vh; */
 }
 </style>
